@@ -812,6 +812,19 @@ pub async fn execute_command(cmd: &Value, state: &mut DaemonState) -> Value {
 // Auto-launch
 // ---------------------------------------------------------------------------
 
+/// Connect to a running Chrome via auto-discovery and open a fresh tab so
+/// subsequent navigations don't hijack the user's existing tabs.
+async fn connect_auto_with_fresh_tab() -> Result<BrowserManager, String> {
+    let mut mgr = BrowserManager::connect_auto().await?;
+    mgr.tab_new(None).await?;
+    let session_id = mgr.active_session_id()?.to_string();
+    let _ = mgr
+        .client
+        .send_command("Page.bringToFront", None, Some(&session_id))
+        .await;
+    Ok(mgr)
+}
+
 async fn auto_launch(state: &mut DaemonState) -> Result<(), String> {
     let options = launch_options_from_env();
     let engine = env::var("AGENT_BROWSER_ENGINE").ok();
@@ -826,8 +839,7 @@ async fn auto_launch(state: &mut DaemonState) -> Result<(), String> {
     }
 
     if env::var("AGENT_BROWSER_AUTO_CONNECT").is_ok() {
-        let mgr = BrowserManager::connect_auto().await?;
-        state.browser = Some(mgr);
+        state.browser = Some(connect_auto_with_fresh_tab().await?);
         state.subscribe_to_browser_events();
         state.update_stream_client().await;
         try_auto_restore_state(state).await;
@@ -991,7 +1003,7 @@ async fn handle_launch(cmd: &Value, state: &mut DaemonState) -> Result<Value, St
     }
 
     if auto_connect {
-        state.browser = Some(BrowserManager::connect_auto().await?);
+        state.browser = Some(connect_auto_with_fresh_tab().await?);
         state.subscribe_to_browser_events();
         state.update_stream_client().await;
         return Ok(json!({ "launched": true }));
@@ -1532,6 +1544,7 @@ async fn handle_screenshot(cmd: &Value, state: &mut DaemonState) -> Result<Value
             &session_id,
             &SnapshotOptions {
                 interactive: true,
+                cursor: true,
                 ..SnapshotOptions::default()
             },
             &mut state.ref_map,
