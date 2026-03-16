@@ -1,5 +1,26 @@
 # agent-browser
 
+## 0.20.13
+
+### Patch Changes
+
+- eda956b: ### Bug Fixes
+
+  - **Network idle detection for cached pages** - Fixed an issue where `poll_network_idle` could return immediately when no network events were observed (e.g. pages served from cache). The idle timer is now only satisfied after a consistent **500 ms idle period** has elapsed, preventing false-positive idle detection. The core polling logic has also been extracted into a standalone `poll_network_idle` function to improve testability (#847)
+
+## 0.20.12
+
+### Patch Changes
+
+- 5fa2396: ### Bug Fixes
+
+  - Fixed **`snapshot -C`** and **`screenshot --annotate`** hanging when connected over WSS (WebSocket Secure) due to sequential CDP round-trips per interactive element (#842)
+
+  ### Performance
+
+  - **`snapshot -C` (cursor-interactive mode)** now batches CDP calls instead of issuing N×2 sequential round-trips per cursor-interactive element, preventing timeouts on high-latency WSS connections (#842)
+  - **`screenshot --annotate`** now batches element queries, reducing completion time from potentially 20–40s (e.g. 50+ buttons over WSS) to within expected bounds (#842)
+
 ## 0.20.11
 
 ### Patch Changes
